@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "AI Text Detector",
+  "name": "BotSpotter",
   "version": "1.0",
   "description": "Highlights potentially AI-generated text based on common patterns",
   "permissions": ["storage", "activeTab"],
