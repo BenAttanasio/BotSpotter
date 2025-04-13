@@ -1,0 +1,35 @@
+/* Styles for AI text detection highlighting */
+
+.ai-text-detected {
+    position: relative;
+    transition: background-color 0.3s ease;
+  }
+  
+  .ai-text-detected::after {
+    content: "AI";
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 2px;
+    opacity: 0.7;
+    z-index: 10000;
+  }
+  
+  /* Tooltip on hover */
+  .ai-text-detected:hover::before {
+    content: "Potential AI-generated text detected";
+    position: absolute;
+    top: -25px;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 12px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    z-index: 10001;
+  }

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Text Detector Options</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    
+    h1 {
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
+    }
+    
+    .section {
+      margin-bottom: 30px;
+    }
+    
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    
+    .pattern-list {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .pattern-item {
+      display: flex;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    
+    .pattern-input {
+      flex-grow: 1;
+      padding: 5px;
+      margin-right: 10px;
+    }
+    
+    .pattern-remove {
+      background-color: #ff4d4d;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .pattern-add {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    
+    .save-btn {
+      background-color: #2196F3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    
+    .success {
+      background-color: #dff0d8;
+      color: #3c763d;
+    }
+    
+    .error {
+      background-color: #f2dede;
+      color: #a94442;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Text Detector Options</h1>
+  
+  <div class="section">
+    <div class="section-title">AI Detection Patterns</div>
+    <p>The extension will look for these patterns in text to identify potential AI-generated content.</p>
+    
+    <ul id="pattern-list" class="pattern-list">
+      <!-- Patterns will be added here dynamically -->
+    </ul>
+    
+    <button id="add-pattern" class="pattern-add">Add New Pattern</button>
+  </div>
+  
+  <div class="section">
+    <button id="save-btn" class="save-btn">Save Changes</button>
+    <div id="status" class="status"></div>
+  </div>
+  
+  <script src="options.js"></script>
+</body>
+</html>

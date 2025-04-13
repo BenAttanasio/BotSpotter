@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Text Detector</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      width: 250px;
+      padding: 10px;
+    }
+    
+    h1 {
+      font-size: 18px;
+      margin-top: 0;
+    }
+    
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+    
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+      background-color: #2196F3;
+    }
+    
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+    
+    .option-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0;
+    }
+    
+    #color-picker {
+      width: 80px;
+    }
+    
+    .stats {
+      font-size: 12px;
+      color: #666;
+      margin-top: 15px;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+    
+    .footer {
+      font-size: 10px;
+      color: #999;
+      text-align: center;
+      margin-top: 15px;
+    }
+    
+    button {
+      background-color: #f0f0f0;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    button:hover {
+      background-color: #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Text Detector</h1>
+  
+  <div class="option-row">
+    <span>Enable Detection:</span>
+    <label class="switch">
+      <input type="checkbox" id="detection-toggle" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+  
+  <div class="option-row">
+    <label for="color-picker">Highlight Color:</label>
+    <input type="color" id="color-picker" value="#ffff00">
+  </div>
+  
+  <div class="option-row">
+    <button id="options-btn">Advanced Options</button>
+  </div>
+  
+  <div class="stats">
+    <div>Current page: <span id="current-count">0</span> potential AI elements</div>
+  </div>
+  
+  <div class="footer">
+    AI Text Detector v1.0
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
