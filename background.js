@@ -11,7 +11,7 @@ chrome.runtime.onInstalled.addListener(function() {
         "; it's a"
       ]
     }, function() {
-      console.log('AI Text Detector initialized with default settings');
+      console.log('BotSpotter initialized with default settings');
     });
   });
   
