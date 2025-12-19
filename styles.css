@@ -1,0 +1,101 @@
+/* BotSpotter Content Styles */
+/* These styles are injected into every page */
+
+/* Base detection class */
+.botspotter-detected {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* AI Badge - only shown when botspotter-show-badge class is present */
+.botspotter-detected.botspotter-show-badge::after {
+  content: "AI";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+  z-index: 10000;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  line-height: 1.2;
+}
+
+/* Tooltip on hover */
+.botspotter-detected::before {
+  content: "Potential AI-generated content detected";
+  position: absolute;
+  top: -32px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 10001;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.botspotter-detected:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+/* Arrow for tooltip */
+.botspotter-detected::after {
+  /* Note: The after pseudo-element is used for the badge, 
+     so we can't use it for the tooltip arrow.
+     This is a deliberate tradeoff. */
+}
+
+/* Smooth fade-in animation for newly detected elements */
+@keyframes botspotter-fade-in {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.botspotter-detected {
+  animation: botspotter-fade-in 0.3s ease-out;
+}
+
+/* Ensure highlight doesn't break layout too badly */
+.botspotter-detected {
+  display: inline;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* For block-level elements, ensure proper containing */
+p.botspotter-detected,
+div.botspotter-detected,
+li.botspotter-detected,
+blockquote.botspotter-detected,
+article.botspotter-detected,
+section.botspotter-detected {
+  display: block;
+  padding: 4px;
+  margin: 2px 0;
+  border-radius: 4px;
+}
+
+/* Ensure badge doesn't interfere with text selection */
+.botspotter-detected *::selection {
+  background: rgba(59, 130, 246, 0.3);
+}
