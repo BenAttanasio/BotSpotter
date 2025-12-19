@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BotSpotter Settings</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background: #f9fafb;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e5e5e5;
+    }
+    
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    h1::before {
+      content: '🤖';
+      font-size: 32px;
+    }
+    
+    .version {
+      font-size: 14px;
+      color: #666;
+      background: #e5e5e5;
+      padding: 4px 12px;
+      border-radius: 12px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .card-description {
+      font-size: 14px;
+      color: #666;
+      margin: 0 0 20px 0;
+    }
+    
+    /* Pattern List */
+    .pattern-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .pattern-item {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    
+    .pattern-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    
+    .pattern-input:focus {
+      outline: none;
+      border-color: #10b981;
+    }
+    
+    .pattern-remove {
+      background: #fee2e2;
+      color: #dc2626;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    .pattern-remove:hover {
+      background: #fecaca;
+    }
+    
+    .pattern-add {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+      margin-top: 10px;
+    }
+    
+    .pattern-add:hover {
+      background: #059669;
+    }
+    
+    /* Domain List */
+    .domain-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .domain-item {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    
+    .domain-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
+    .domain-input:focus {
+      outline: none;
+      border-color: #10b981;
+    }
+    
+    .domain-remove {
+      background: #fee2e2;
+      color: #dc2626;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .domain-add {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 10px;
+    }
+    
+    .domain-add:hover {
+      background: #2563eb;
+    }
+    
+    /* Sensitivity Slider */
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .slider-container input[type="range"] {
+      flex: 1;
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #e5e5e5;
+      border-radius: 4px;
+      outline: none;
+    }
+    
+    .slider-container input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #10b981;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    
+    .slider-value {
+      min-width: 80px;
+      text-align: center;
+      padding: 6px 12px;
+      background: #f3f4f6;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    /* Toggle Row */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .toggle-row:last-child {
+      border-bottom: none;
+    }
+    
+    .toggle-label {
+      font-size: 14px;
+    }
+    
+    .toggle-description {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    
+    /* Switch */
+    .switch {
+      position: relative;
+      width: 48px;
+      height: 26px;
+    }
+    
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 26px;
+    }
+    
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+      background-color: #10b981;
+    }
+    
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+    
+    /* Buttons */
+    .button-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e5e5e5;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #10b981;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #059669;
+    }
+    
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #1a1a1a;
+    }
+    
+    .btn-secondary:hover {
+      background: #e5e5e5;
+    }
+    
+    .btn-danger {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    
+    .btn-danger:hover {
+      background: #fecaca;
+    }
+    
+    /* Status Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 16px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+    
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    .toast.success {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+    
+    .toast.error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+    
+    /* Import/Export */
+    .import-export {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .import-export .btn {
+      flex: 1;
+    }
+    
+    #import-file {
+      display: none;
+    }
+    
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-size: 14px;
+      background: #f9fafb;
+      border-radius: 8px;
+      border: 2px dashed #e5e5e5;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>BotSpotter Settings</h1>
+    <span class="version">v1.1</span>
+  </div>
+  
+  <div class="card">
+    <h2 class="card-title">🎯 Detection Patterns</h2>
+    <p class="card-description">
+      Add phrases commonly found in AI-generated text. The extension will highlight text containing these patterns.
+    </p>
+    
+    <ul id="pattern-list" class="pattern-list">
+      <!-- Patterns added by JS -->
+    </ul>
+    
+    <button id="add-pattern" class="pattern-add">+ Add Pattern</button>
+  </div>
+  
+  <div class="card">
+    <h2 class="card-title">⚙️ Detection Settings</h2>
+    <p class="card-description">
+      Fine-tune how the detection works.
+    </p>
+    
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Sensitivity Level</div>
+        <div class="toggle-description">Number of patterns required to trigger highlighting</div>
+      </div>
+    </div>
+    
+    <div class="slider-container" style="margin-top: 12px;">
+      <input type="range" id="sensitivity-slider" min="1" max="5" value="1">
+      <span class="slider-value" id="sensitivity-value">1 pattern</span>
+    </div>
+    
+    <div class="toggle-row" style="margin-top: 20px;">
+      <div>
+        <div class="toggle-label">Show "AI" Badge</div>
+        <div class="toggle-description">Display a small badge on detected content</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="show-badge" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2 class="card-title">🚫 Excluded Domains</h2>
+    <p class="card-description">
+      Disable detection on specific websites. Enter domain names without "https://" (e.g., "example.com").
+    </p>
+    
+    <ul id="domain-list" class="domain-list">
+      <!-- Domains added by JS -->
+    </ul>
+    <div id="domain-empty" class="empty-state" style="display: none;">
+      No excluded domains. Add domains where you don't want detection to run.
+    </div>
+    
+    <button id="add-domain" class="domain-add">+ Add Domain</button>
+  </div>
+  
+  <div class="card">
+    <h2 class="card-title">💾 Backup & Restore</h2>
+    <p class="card-description">
+      Export your settings to a file or import from a backup.
+    </p>
+    
+    <div class="import-export">
+      <button class="btn btn-secondary" id="export-btn">📤 Export Settings</button>
+      <label class="btn btn-secondary" for="import-file">📥 Import Settings</label>
+      <input type="file" id="import-file" accept=".json">
+    </div>
+  </div>
+  
+  <div class="button-row">
+    <button class="btn btn-primary" id="save-btn">💾 Save Changes</button>
+    <button class="btn btn-danger" id="reset-btn">🔄 Reset to Defaults</button>
+  </div>
+  
+  <div id="toast" class="toast"></div>
+  
+  <script src="options.js"></script>
+</body>
+</html>
