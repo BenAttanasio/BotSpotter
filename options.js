@@ -77,12 +77,22 @@ function renderPatterns() {
     input.type = 'text';
     input.className = 'pattern-input';
     input.value = pattern;
-    input.placeholder = 'Enter a pattern...';
+    input.placeholder = 'Enter a pattern or regex:your_regex_here';
     input.dataset.index = index;
     input.addEventListener('input', function() {
       patterns[parseInt(this.dataset.index)] = this.value;
+      const badge = this.parentElement.querySelector('.regex-badge');
+      if (badge) {
+        badge.style.display = this.value.startsWith('regex:') ? 'inline-block' : 'none';
+      }
     });
-    
+
+    const badge = document.createElement('span');
+    badge.className = 'regex-badge';
+    badge.textContent = 'regex';
+    badge.title = 'This pattern uses regular expression matching';
+    badge.style.display = pattern.startsWith('regex:') ? 'inline-block' : 'none';
+
     const removeBtn = document.createElement('button');
     removeBtn.className = 'pattern-remove';
     removeBtn.textContent = '✕ Remove';
@@ -91,8 +101,9 @@ function renderPatterns() {
       patterns.splice(parseInt(this.dataset.index), 1);
       renderPatterns();
     });
-    
+
     li.appendChild(input);
+    li.appendChild(badge);
     li.appendChild(removeBtn);
     patternList.appendChild(li);
   });

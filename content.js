@@ -12,6 +12,73 @@ let showBadge = true;
 let sensitivity = 1;
 let detectedCount = 0;
 
+const regexCache = new Map();
+
+// --- Dynamic-content scanning state ---
+const pendingRoots = new Set();          // element roots awaiting an incremental scan
+let rescanTimer = null;                  // debounce timer shared by incremental + SPA rescans
+const observedRoots = new WeakSet();     // shadow roots already being observed (prevents dup/leaks)
+const styledShadowRoots = new WeakSet(); // shadow roots we've injected styles into
+let lastHref = location.href;            // tracks SPA navigation
+let sharedStyleSheet = null;             // constructed stylesheet reused across shadow roots
+
+// Styles mirrored from styles.css so highlights/badge render inside shadow roots,
+// which the manifest-injected styles.css does not reach.
+const BOTSPOTTER_SHADOW_CSS = `
+.botspotter-detected {
+  position: relative;
+  transition: all 0.3s ease;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.botspotter-detected.botspotter-show-badge::after {
+  content: "AI";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-block;
+  white-space: nowrap;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+  z-index: 10000;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  line-height: 1.2;
+}
+p.botspotter-detected,
+div.botspotter-detected,
+li.botspotter-detected,
+blockquote.botspotter-detected,
+article.botspotter-detected,
+section.botspotter-detected {
+  padding: 4px;
+  margin: 2px 0;
+  border-radius: 4px;
+}`;
+
+function matchesPattern(text, pattern) {
+  if (pattern.startsWith('regex:')) {
+    const regexStr = pattern.slice(6);
+    if (!regexCache.has(pattern)) {
+      try {
+        regexCache.set(pattern, { regex: new RegExp(regexStr, 'i'), valid: true });
+      } catch (e) {
+        regexCache.set(pattern, { regex: null, valid: false });
+      }
+    }
+    const cached = regexCache.get(pattern);
+    return cached.valid ? cached.regex.test(text) : false;
+  }
+  return text.toLowerCase().includes(pattern.toLowerCase());
+}
+
 // Check if current domain is excluded
 function isDomainExcluded() {
   const currentDomain = window.location.hostname.replace('www.', '');
@@ -93,6 +160,7 @@ function handleMessage(request, sender, sendResponse) {
       
     case 'updatePatterns':
       aiPatterns = request.patterns;
+      regexCache.clear();
       removeHighlights();
       if (isExtensionEnabled && !isDomainExcluded()) {
         detectAIText();
@@ -120,6 +188,7 @@ function handleMessage(request, sender, sendResponse) {
       highlightStyle = settings.highlightStyle;
       highlightOpacity = settings.highlightOpacity;
       aiPatterns = settings.patterns;
+      regexCache.clear();
       excludedDomains = settings.excludedDomains;
       showBadge = settings.showBadge;
       sensitivity = settings.sensitivity;
@@ -130,7 +199,7 @@ function handleMessage(request, sender, sendResponse) {
       break;
       
     case 'getStats':
-      sendResponse({ count: detectedCount });
+      sendResponse({ count: document.querySelectorAll('.botspotter-detected').length });
       return true;
       
     case 'rescan':
@@ -147,100 +216,147 @@ function handleMessage(request, sender, sendResponse) {
 
 // Main detection function
 function detectAIText() {
-  detectedCount = 0;
-  
-  // Get all text nodes in the document
+  detectedCount = document.querySelectorAll('.botspotter-detected').length;
+
   const textNodes = getTextNodes(document.body);
-  
-  // Track which containers have already been processed
-  const processedContainers = new Set();
-  
-  // Process each text node
+  const containerPatterns = new Map();
+
   textNodes.forEach(node => {
     const text = node.nodeValue;
-    
-    // Count how many patterns match
-    const matchingPatterns = aiPatterns.filter(pattern => 
-      text.toLowerCase().includes(pattern.toLowerCase())
-    );
-    
-    // Check if enough patterns match based on sensitivity
+
+    const matchingPatterns = aiPatterns.filter(pattern => matchesPattern(text, pattern));
+
     if (matchingPatterns.length >= sensitivity) {
-      // Find appropriate container element to highlight
       const container = findAppropriateContainer(node.parentElement);
-      
-      // Skip if already processed
-      if (processedContainers.has(container)) return;
-      processedContainers.add(container);
-      
-      highlightElement(container, matchingPatterns);
-      detectedCount++;
+      if (!container) return;
+      if (container.classList.contains('botspotter-detected')) return;
+
+      if (!containerPatterns.has(container)) {
+        containerPatterns.set(container, new Set());
+      }
+      matchingPatterns.forEach(p => containerPatterns.get(container).add(p));
     }
   });
+
+  for (const [container, patternSet] of containerPatterns) {
+    highlightElement(container, Array.from(patternSet));
+    detectedCount++;
+  }
 }
 
-// Get all text nodes under the given element
-function getTextNodes(element) {
+// Incremental detection for newly added nodes only
+function detectAITextIncremental(rootNodes) {
+  for (const root of rootNodes) {
+    if (root.nodeType !== Node.ELEMENT_NODE) continue;
+
+    const textNodes = getTextNodes(root);
+    const containerPatterns = new Map();
+
+    textNodes.forEach(node => {
+      const text = node.nodeValue;
+
+      const matchingPatterns = aiPatterns.filter(pattern => matchesPattern(text, pattern));
+
+      if (matchingPatterns.length >= sensitivity) {
+        const container = findAppropriateContainer(node.parentElement);
+        if (!container) return;
+        if (container.classList.contains('botspotter-detected')) return;
+
+        if (!containerPatterns.has(container)) {
+          containerPatterns.set(container, new Set());
+        }
+        matchingPatterns.forEach(p => containerPatterns.get(container).add(p));
+      }
+    });
+
+    for (const [container, patternSet] of containerPatterns) {
+      highlightElement(container, Array.from(patternSet));
+      detectedCount++;
+    }
+  }
+}
+
+const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'INPUT', 'TEXTAREA',
+                            'SELECT', 'OPTION', 'BUTTON', 'IFRAME', 'SVG', 'CANVAS']);
+
+// Get all text nodes under the given root, descending into open shadow roots.
+function getTextNodes(root) {
   const textNodes = [];
-  
-  if (!element) return textNodes;
-  
+  collectTextNodes(root, textNodes);
+  return textNodes;
+}
+
+// Collect text nodes from `node`'s light DOM, then recurse into any open shadow
+// roots it contains. A TreeWalker does not pierce shadow DOM, so we must walk
+// each shadow root separately.
+function collectTextNodes(node, out) {
+  if (!node) return;
+
   const walk = document.createTreeWalker(
-    element,
+    node,
     NodeFilter.SHOW_TEXT,
     {
-      acceptNode: node => {
+      acceptNode: textNode => {
         // Skip empty nodes
-        if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-        
-        // Skip script and style elements
-        const parent = node.parentElement;
-        if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE' || parent.tagName === 'NOSCRIPT')) {
+        if (!textNode.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+
+        // Skip non-content elements
+        const parent = textNode.parentElement;
+        if (parent && SKIP_TAGS.has(parent.tagName)) {
           return NodeFilter.FILTER_REJECT;
         }
-        
+
         return NodeFilter.FILTER_ACCEPT;
       }
     }
   );
-  
-  let node;
-  while (node = walk.nextNode()) {
-    textNodes.push(node);
+
+  let textNode;
+  while (textNode = walk.nextNode()) {
+    out.push(textNode);
   }
-  
-  return textNodes;
+
+  // Recurse into open shadow roots (closed roots expose no shadowRoot and are skipped).
+  const hosts = [];
+  if (node.nodeType === Node.ELEMENT_NODE && node.shadowRoot) hosts.push(node);
+  if (typeof node.querySelectorAll === 'function') {
+    node.querySelectorAll('*').forEach(el => {
+      if (el.shadowRoot) hosts.push(el);
+    });
+  }
+  for (const host of hosts) collectTextNodes(host.shadowRoot, out);
 }
 
 // Find appropriate container for highlighting
 function findAppropriateContainer(element) {
+  if (!element) return null;
+
+  const SAFE_STOP_TAGS = new Set(['P', 'LI', 'BLOCKQUOTE', 'TD', 'TH']);
+  const UNSAFE_TAGS    = new Set(['BODY', 'HTML', 'ARTICLE', 'SECTION',
+                                   'MAIN', 'HEADER', 'FOOTER', 'NAV']);
+
   let container = element;
-  
-  if (!container) return null;
-  
-  // Move up to parent elements like paragraphs, list items, divs
+
   while (container.parentElement) {
     const tag = container.tagName;
-    
-    // Stop at appropriate block-level elements
-    if (tag === 'P' || tag === 'LI' || tag === 'BLOCKQUOTE' || tag === 'TD' || tag === 'TH') {
-      break;
-    }
-    
-    // Stop at divs that seem like content containers (have enough text)
-    if (tag === 'DIV' && container.textContent.length >= 100) {
-      break;
-    }
-    
-    // Don't go too high in the DOM hierarchy
-    if (tag === 'ARTICLE' || tag === 'SECTION' || tag === 'BODY' || tag === 'HTML') {
-      break;
-    }
-    
+
+    // Never return a top-level structural element
+    if (UNSAFE_TAGS.has(tag)) return null;
+
+    // Good semantic block containers — stop here
+    if (SAFE_STOP_TAGS.has(tag)) return container;
+
+    // Substantial div — stop here
+    if (tag === 'DIV' && container.textContent.length >= 100) return container;
+
+    // Peek at parent — stop before climbing into unsafe territory
+    if (UNSAFE_TAGS.has(container.parentElement.tagName)) return container;
+
     container = container.parentElement;
   }
-  
-  return container;
+
+  // Final safety: don't return a structural element
+  return UNSAFE_TAGS.has(container.tagName) ? null : container;
 }
 
 // Calculate highlight color with opacity
@@ -268,17 +384,60 @@ function highlightElement(element, matchingPatterns = []) {
     return;
   }
   
-  // Add detection class
   element.classList.add('botspotter-detected');
-  
+  if (showBadge) {
+    element.classList.add('botspotter-show-badge');
+  }
+
   // Store original styles for restoration
   element.dataset.bsOriginalBg = element.style.backgroundColor || '';
   element.dataset.bsOriginalBorder = element.style.border || '';
   element.dataset.bsOriginalTextDecoration = element.style.textDecoration || '';
   element.dataset.bsMatchedPatterns = JSON.stringify(matchingPatterns);
-  
+
+  // Build tooltip text listing the triggering phrases
+  const phraseList = matchingPatterns.map(p => {
+    if (p.startsWith('regex:')) return `[pattern] ${p.slice(6)}`;
+    return `"${p}"`;
+  }).join(', ');
+  element.dataset.bsTooltip = `AI phrase${matchingPatterns.length > 1 ? 's' : ''} detected: ${phraseList}`;
+
+  // If this element lives inside a shadow root, make sure our styles reach it
+  // (the manifest-injected styles.css does not cascade into shadow DOM).
+  ensureShadowStyles(element);
+
   // Apply highlight style
   applyHighlightStyle(element);
+}
+
+// Inject BotSpotter styles into a shadow root once, so highlights/badge render there.
+function ensureShadowStyles(node) {
+  if (!node || typeof node.getRootNode !== 'function') return;
+  const root = node.getRootNode();
+  // Only shadow roots need their own copy; the document already has styles.css.
+  if (!(typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot)) return;
+  if (styledShadowRoots.has(root)) return;
+  styledShadowRoots.add(root);
+
+  try {
+    if ('adoptedStyleSheets' in root && typeof CSSStyleSheet === 'function') {
+      if (!sharedStyleSheet) {
+        sharedStyleSheet = new CSSStyleSheet();
+        sharedStyleSheet.replaceSync(BOTSPOTTER_SHADOW_CSS);
+      }
+      // Avoid clobbering the site's own adopted sheets.
+      if (!root.adoptedStyleSheets.includes(sharedStyleSheet)) {
+        root.adoptedStyleSheets = [...root.adoptedStyleSheets, sharedStyleSheet];
+      }
+    } else {
+      const style = document.createElement('style');
+      style.textContent = BOTSPOTTER_SHADOW_CSS;
+      root.appendChild(style);
+    }
+  } catch (e) {
+    // Site may freeze adoptedStyleSheets; inline highlight styles still apply.
+    console.error('BotSpotter: could not inject shadow styles', e);
+  }
 }
 
 // Apply the current highlight style to an element
@@ -346,46 +505,218 @@ function removeHighlights() {
     delete element.dataset.bsOriginalBorder;
     delete element.dataset.bsOriginalTextDecoration;
     delete element.dataset.bsMatchedPatterns;
+    delete element.dataset.bsTooltip;
   });
   
   detectedCount = 0;
+  hideTooltip();
 }
+
+// Tooltip – a single fixed-position <div> on <body> so it escapes overflow:hidden.
+let tooltipEl = null;
+let currentTooltipTarget = null;
+
+function getTooltip() {
+  if (!tooltipEl || !tooltipEl.isConnected) {
+    if (tooltipEl) tooltipEl.remove();
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = 'botspotter-tooltip';
+    document.body.appendChild(tooltipEl);
+  }
+  return tooltipEl;
+}
+
+function showTooltipFor(detected) {
+  if (!detected || !detected.dataset.bsTooltip) return;
+
+  currentTooltipTarget = detected;
+  const tip = getTooltip();
+  tip.textContent = detected.dataset.bsTooltip;
+
+  // Position off-screen first so we can measure true size
+  tip.classList.remove('visible');
+  tip.style.left = '-9999px';
+  tip.style.top = '-9999px';
+  tip.style.display = 'block';
+
+  // Force layout so measurements are accurate
+  const tipWidth = tip.offsetWidth;
+  const tipHeight = tip.offsetHeight;
+  const elRect = detected.getBoundingClientRect();
+
+  let top = elRect.top - tipHeight - 6;
+  if (top < 0) top = elRect.bottom + 6;
+
+  let left = elRect.left;
+  if (left + tipWidth > window.innerWidth - 8) {
+    left = window.innerWidth - tipWidth - 8;
+  }
+  if (left < 8) left = 8;
+
+  tip.style.top = `${top}px`;
+  tip.style.left = `${left}px`;
+  tip.classList.add('visible');
+}
+
+function hideTooltip() {
+  currentTooltipTarget = null;
+  if (tooltipEl) {
+    tooltipEl.classList.remove('visible');
+    tooltipEl.style.display = 'none';
+  }
+}
+
+// Use mouseover (bubbles from children) for enter detection
+document.addEventListener('mouseover', (e) => {
+  // Ignore events on the tooltip itself
+  if (tooltipEl && tooltipEl.contains(e.target)) return;
+
+  const detected = e.target.closest('.botspotter-detected');
+  if (detected && detected !== currentTooltipTarget) {
+    showTooltipFor(detected);
+  } else if (!detected && currentTooltipTarget) {
+    hideTooltip();
+  }
+});
+
+// Hide when leaving the page entirely
+document.addEventListener('mouseleave', hideTooltip);
+window.addEventListener('scroll', hideTooltip);
 
 // Initialize the extension
 init();
 
-// Watch for dynamically added content
+// Watch for dynamically added content. A single shared observer is reused for the
+// document body and every shadow root we discover, so all mutations funnel through
+// the same accumulate-and-flush pipeline.
 const observer = new MutationObserver(mutations => {
-  if (!isExtensionEnabled || isDomainExcluded()) return;
-  
-  let shouldRescan = false;
-  
-  for (const mutation of mutations) {
-    if (mutation.addedNodes.length > 0) {
-      // Check if any added nodes contain text
+  try {
+    if (!isExtensionEnabled || isDomainExcluded()) return;
+
+    for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
-        if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) {
-          shouldRescan = true;
-          break;
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.id && node.id.startsWith('botspotter-')) continue;
+          pendingRoots.add(node);
         }
       }
     }
-    if (shouldRescan) break;
-  }
-  
-  if (shouldRescan) {
-    // Debounce the rescan
-    clearTimeout(observer.rescanTimeout);
-    observer.rescanTimeout = setTimeout(() => {
-      detectAIText();
-    }, 500);
+
+    if (pendingRoots.size === 0) return;
+
+    // Debounce, but accumulate into a persistent queue so that resetting the
+    // timer never drops nodes from earlier mutation batches.
+    clearTimeout(rescanTimer);
+    rescanTimer = setTimeout(flushPendingRoots, 500);
+  } catch (error) {
+    console.error('BotSpotter: Error in MutationObserver callback:', error);
   }
 });
 
-// Start observing when DOM is ready
-if (document.body) {
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
+// Drain the queued roots: scan each for AI text and observe any new shadow roots.
+function flushPendingRoots() {
+  rescanTimer = null;
+  if (!isExtensionEnabled || isDomainExcluded()) {
+    pendingRoots.clear();
+    return;
+  }
+
+  // Snapshot + clear so mutations during the scan accumulate for the next flush.
+  const roots = dedupeRoots([...pendingRoots]).filter(node => node.isConnected);
+  pendingRoots.clear();
+  if (roots.length === 0) return;
+
+  try {
+    detectAITextIncremental(roots);
+  } catch (error) {
+    console.error('BotSpotter: Error during incremental scan:', error);
+  }
+
+  // Attach observers to any shadow roots that arrived with these nodes.
+  roots.forEach(observeShadowRoots);
+}
+
+// Drop any node whose ancestor is also queued — scanning the ancestor covers it.
+function dedupeRoots(nodes) {
+  return nodes.filter(node =>
+    !nodes.some(other => other !== node && other.contains(node))
+  );
+}
+
+// Attach the shared observer to every open shadow root under `root` (recursively).
+function observeShadowRoots(root) {
+  if (!root || typeof root.querySelectorAll !== 'function') return;
+
+  if (root.nodeType === Node.ELEMENT_NODE && root.shadowRoot) {
+    attachShadowObserver(root.shadowRoot);
+  }
+  root.querySelectorAll('*').forEach(el => {
+    if (el.shadowRoot) attachShadowObserver(el.shadowRoot);
   });
 }
+
+function attachShadowObserver(shadowRoot) {
+  if (observedRoots.has(shadowRoot)) return;
+  observedRoots.add(shadowRoot);
+  try {
+    observer.observe(shadowRoot, { childList: true, subtree: true });
+  } catch (error) {
+    console.error('BotSpotter: Error observing shadow root:', error);
+  }
+  observeShadowRoots(shadowRoot); // nested shadow roots
+}
+
+// Re-scan after single-page-app navigation (Reddit changes the URL without a reload).
+function onSpaNavigate() {
+  if (location.href === lastHref) return;
+  lastHref = location.href;
+  if (!isExtensionEnabled || isDomainExcluded() || aiPatterns.length === 0) return;
+
+  // Let the SPA swap content in, then run a full (idempotent) rescan.
+  clearTimeout(rescanTimer);
+  rescanTimer = setTimeout(() => {
+    rescanTimer = null;
+    try {
+      detectAIText();
+      observeShadowRoots(document);
+    } catch (error) {
+      console.error('BotSpotter: Error during SPA rescan:', error);
+    }
+  }, 600);
+}
+
+function setupSpaNavigationWatch() {
+  const wrap = fn => function (...args) {
+    const result = fn.apply(this, args);
+    try { onSpaNavigate(); } catch (e) { /* never break the host's navigation */ }
+    return result;
+  };
+  try {
+    history.pushState = wrap(history.pushState);
+    history.replaceState = wrap(history.replaceState);
+  } catch (e) {
+    console.error('BotSpotter: Could not patch history methods', e);
+  }
+  window.addEventListener('popstate', onSpaNavigate);
+  window.addEventListener('hashchange', onSpaNavigate);
+  // Backstop in case the site replaces history methods or uses an unusual router.
+  setInterval(onSpaNavigate, 1000);
+}
+
+// Wire up observers + navigation watch once the DOM is ready.
+function startObserving() {
+  const begin = () => {
+    if (document.body) {
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+    observeShadowRoots(document);
+    setupSpaNavigationWatch();
+  };
+  if (document.body) {
+    begin();
+  } else {
+    document.addEventListener('DOMContentLoaded', begin, { once: true });
+  }
+}
+
+startObserving();

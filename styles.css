@@ -13,6 +13,8 @@
   position: absolute;
   top: 2px;
   right: 2px;
+  display: inline-block;
+  white-space: nowrap;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: white;
   font-size: 9px;
@@ -28,13 +30,10 @@
   line-height: 1.2;
 }
 
-/* Tooltip on hover */
-.botspotter-detected::before {
-  content: "Potential AI-generated content detected";
-  position: absolute;
-  top: -32px;
-  left: 50%;
-  transform: translateX(-50%) scale(0.9);
+/* Tooltip - rendered by JS as a fixed-position element to escape overflow:hidden */
+#botspotter-tooltip {
+  position: fixed;
+  display: none;
   background: rgba(0, 0, 0, 0.85);
   color: white;
   font-size: 11px;
@@ -42,16 +41,14 @@
   padding: 6px 10px;
   border-radius: 6px;
   white-space: nowrap;
-  z-index: 10001;
+  z-index: 2147483647;
   pointer-events: none;
-  opacity: 0;
-  transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.botspotter-detected:hover::before {
+#botspotter-tooltip.visible {
+  display: block;
   opacity: 1;
-  transform: translateX(-50%) scale(1);
 }
 
 /* Arrow for tooltip */

@@ -5,7 +5,8 @@ const DEFAULT_SETTINGS = {
   highlightStyle: 'background', // 'background', 'border', 'underline'
   highlightOpacity: 100,
   patterns: [
-    "isn't just about",
+    "—",
+    "isn't just",
     "—it's about",
     "more than just",
     "; it's a",
@@ -13,20 +14,25 @@ const DEFAULT_SETTINGS = {
     "dive into",
     "delve into",
     "in today's world",
-    "landscape",
-    "navigate",
-    "foster",
-    "leverage",
-    "in conclusion",
     "it's worth noting",
-    "I cannot and will not",
-    "boundaries",
-    "I cannot provide",
-    "I cannot assist"
+    "actually lands",
+    "curious what",
+    "solid move",
+    ", not just",
+    ", not ",
+    "noise",
+    "signal",
+    "actually works",
+    "real work",
+    "most people",
+    "real win",
+    "regex:it[\\u2019']s not\\b[^.!?]*,\\s*it[\\u2019']s\\b",
+    "regex:it[\\u2019']s not\\b[^.!?]*[.!?]\\s*It[\\u2019']s\\b",
+    "regex:not \\w+\\.\\s*not \\w+\\.\\s*just\\b"
   ],
   excludedDomains: [],
   showBadge: true,
-  sensitivity: 1 // Number of patterns required to trigger (1 = any match)
+  sensitivity: 1
 };
 
 // Initialize settings - runs on install AND on startup to ensure settings exist
@@ -41,9 +47,15 @@ async function initializeSettings(isInstall = false) {
       // Merge existing settings with defaults (preserves user customizations on update)
       const settings = { ...DEFAULT_SETTINGS };
       
-      // Keep any existing custom patterns if this is an update
+      // Keep existing custom patterns and merge in any new defaults
       if (result.patterns && Array.isArray(result.patterns) && result.patterns.length > 0) {
-        settings.patterns = result.patterns;
+        const merged = [...result.patterns];
+        for (const p of DEFAULT_SETTINGS.patterns) {
+          if (!merged.some(existing => existing.toLowerCase() === p.toLowerCase())) {
+            merged.push(p);
+          }
+        }
+        settings.patterns = merged;
       }
       
       // Keep existing color if set
@@ -109,7 +121,8 @@ async function saveSettings(settings) {
 
 // Initialize on extension install
 chrome.runtime.onInstalled.addListener(async (details) => {
-  await initializeSettings(details.reason === 'install');
+  const isInstallOrUpdate = details.reason === 'install' || details.reason === 'update';
+  await initializeSettings(isInstallOrUpdate);
 });
 
 // Also check settings on startup (handles cases where storage was cleared)
